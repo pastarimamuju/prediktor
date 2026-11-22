@@ -225,18 +225,18 @@ Promise.all([
       dynamicTyping:false,
       skipEmptyLines:true,
       transformHeader:h=>String(h||'').trim().toLowerCase(),
-      complete:res=>{
-        const rows=(res.data||[]).map(x=>({
-          n:String(x.n||'').trim(),
-          u:num(x.u,0),
-          y:num(x.y,0),
-          k:Math.round(num(x.k,0)),
-          g:Math.round(num(x.g,0)),
-          a:num(x.a,0),
-          t:String(x.t||'').trim()
-        })).filter(x=>x.n&&x.u>0&&x.y>0);
-        resolve(rows);
-      },
+      complete: res => {
+  const rows = (res.data || []).map(x => ({
+    n: String(x.varietas ?? x.n ?? '').trim(),
+    u: num(x.umur ?? x.u, 0),
+    y: num(x.potensi_hasil ?? x.y, 0),
+    k: Math.round(num(x.toleransi_kering ?? x.k, 0)),
+    g: Math.round(num(x.gogo ?? x.g, 0)),
+    a: num(x.faktor_hasil ?? x.a, 0),
+    t: String(x.catatan ?? x.t ?? '').trim()
+  })).filter(x => x.n && x.u > 0 && x.y > 0);
+  resolve(rows);
+},
       error:()=>resolve([])
     });
   })
