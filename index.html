@@ -82,7 +82,7 @@ const C=(id,cfg)=>{if(ch[id])ch[id].destroy();cfg.options=Object.assign({respons
 
 /* ===== Modul jadwal tanam padi ===== */
 // Kolom Google Sheets: n=nama, u=umur sebar-panen (hari), y=potensi hasil (t/ha), k=toleransi kering (0-2), g=gogo(1), a=faktor hasil lapang, t=catatan. INDIKATIF.
-const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/1d-xYcQxGpiBQKDecFrzHizM031Up23msjtaDVQStLc0/export?format=csv';
+const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/15i19bdk5pzJkJP8Iv3IAWISsuQM3PZzvfEzhTgkLzHk/export?format=csv';
 const VAR_DEFAULT=[
  {n:'Ciherang',u:120,y:8.5,k:0,t:'Umum dipakai; butuh air cukup'},
  {n:'Mekongga',u:120,y:8.4,k:0,t:'Populer di Sulawesi'},
@@ -210,10 +210,36 @@ function render(){
     .bindTooltip(s.name+': '+Math.round(p)+'% normal ('+lab[k]+')').on('click',()=>{$('st').value=s.id;render();});});
   tanam();
 }
+
+// Parser angka aman untuk format koma desimal Indonesia ("8,5" -> 8.5) dan titik ("8.5" -> 8.5)
+const num=(v,fb=0)=>{if(typeof v==='number')return Number.isFinite(v)?v:fb;const s=String(v??'').trim().replace(/\s+/g,'').replace(',','.');const n=parseFloat(s);return Number.isFinite(n)?n:fb;};
+const withBust=(url,ts)=>url+(url.includes('?')?'&':'?')+'_t='+ts;
+
 Promise.all([
   fetch(DATA_URL+'?t='+Date.now()).then(r=>r.json()),
-  new Promise(resolve=>Papa.parse(SHEET_CSV_URL,{download:true,header:true,dynamicTyping:true,skipEmptyLines:true,
-    transformHeader:h=>h.trim(),complete:res=>resolve(res.data.filter(x=>x&&x.n&&x.u&&x.y)),error:()=>resolve([])}))
+  new Promise(resolve=>{
+    const ts=Date.now();
+    Papa.parse(withBust(SHEET_CSV_URL,ts),{
+      download:true,
+      header:true,
+      dynamicTyping:false,
+      skipEmptyLines:true,
+      transformHeader:h=>String(h||'').trim().toLowerCase(),
+      complete:res=>{
+        const rows=(res.data||[]).map(x=>({
+          n:String(x.n||'').trim(),
+          u:num(x.u,0),
+          y:num(x.y,0),
+          k:Math.round(num(x.k,0)),
+          g:Math.round(num(x.g,0)),
+          a:num(x.a,0),
+          t:String(x.t||'').trim()
+        })).filter(x=>x.n&&x.u>0&&x.y>0);
+        resolve(rows);
+      },
+      error:()=>resolve([])
+    });
+  })
 ]).then(([r,sheet])=>{
   if(sheet.length)VAR=sheet;else{VAR=VAR_DEFAULT;$('err').textContent='Peringatan: data varietas dari Google Sheets gagal dimuat, memakai data bawaan.';}
   if(r.error)throw new Error(r.error);
