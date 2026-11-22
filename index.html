@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hujan &amp; Jadwal Tanam Padi Sulbar</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{--bg:#f4f6f9;--cd:#fff;--tx:#1b2430;--mu:#64748b;--bd:#e2e8f0;--ac:#0b6fa4;--bn:#d97706;--nn:#64748b;--an:#0b8a5f}
+@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--cd:#1e293b;--tx:#e5e9f0;--mu:#94a3b8;--bd:#334155;--ac:#38bdf8;--bn:#fbbf24;--nn:#94a3b8;--an:#34d399}}
+*{box-sizing:border-box}body{margin:0;font:14px system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+header{padding:16px 20px;border-bottom:1px solid var(--bd);background:var(--cd)}h1{margin:0;font-size:20px}h2{margin:0 0 8px;font-size:14px}h3{font-size:17px;margin:22px 0 8px}
+.sub{color:var(--mu);font-size:12px;margin-top:2px}main{padding:16px 20px;max-width:1300px;margin:auto}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+select,input,button{font:inherit;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--cd);color:var(--tx)}
+input{width:70px}button{cursor:pointer}button:hover{border-color:var(--ac)}
+.g{display:grid;gap:12px;margin-bottom:12px}.k{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}.c2{grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+.cd{background:var(--cd);border:1px solid var(--bd);border-radius:10px;padding:12px;overflow:auto}
+.kv{font-size:22px;font-weight:600}.ks{color:var(--mu);font-size:12px}.cv{position:relative;height:260px}#map{height:300px;border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:6px 8px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}
+.BN{color:var(--bn);font-weight:600}.N{color:var(--nn);font-weight:600}.AN{color:var(--an);font-weight:600}
+.note{color:var(--mu);font-size:12px;line-height:1.5}#err{color:#dc2626;padding:0 0 10px}
+.hm{font-size:11px}.hm th,.hm td{text-align:center;padding:4px 5px}.hm th:first-child,.hm td:first-child{text-align:left;position:sticky;left:0;background:var(--cd)}
+.s3{background:#0b8a5f66}.s2{background:#d9770666}.s1{background:#dc262666}
+.s4{background:#0b6fa4;color:#fff;font-weight:bold;box-shadow:inset 0 0 0 2px #38bdf8}
+</style></head><body>
+<header><h1>Hujan &amp; Jadwal Tanam Padi Sulawesi Barat</h1><div class="sub" id="meta">Memuat data…</div></header>
+<main><div id="err"></div>
+<div class="bar">
+  <label>Pos <select id="st"></select></label>
+  <span>Skenario Niño 3.4 <input id="o" type="number" step="0.1" min="-4.5" max="4.5"> DMI <input id="d" type="number" step="0.1" min="-2" max="2"></span>
+  <button data-s="obs">Observasi terakhir</button><button data-s="1,0">El Niño (+1,0)</button><button data-s="-1,0">La Niña (−1,0)</button>
+  <button data-s="0,.8">IOD+ (+0,8)</button><button data-s="0,-.8">IOD− (−0,8)</button><button data-s="0,0">Netral</button>
+</div>
+<div class="g k" id="k"></div>
+<div class="g c2"><div class="cd"><h2>Baseline klimatologi bulanan (CH &amp; hari hujan)</h2><div class="cv"><canvas id="c1"></canvas></div></div>
+<div class="cd"><h2>Prakiraan curah hujan 6 bulan ke depan</h2><div class="cv"><canvas id="c2"></canvas></div></div></div>
+<div class="cd" style="margin-bottom:12px"><h2>Tabel prakiraan</h2><table id="tb"></table></div>
+<div class="g c2"><div class="cd"><h2>Korelasi bersamaan (lag 0) CH vs Niño 3.4 &amp; DMI per bulan</h2><div class="cv"><canvas id="c3"></canvas></div></div>
+<div class="cd"><h2>Niño 3.4 &amp; DMI 36 bulan terakhir</h2><div class="cv"><canvas id="c4"></canvas></div></div></div>
+<div class="cd"><h2>Peta pos hujan — sifat hujan total 3 bulan ke depan</h2><div id="map"></div></div>
+
+<h3>Analisis jadwal tanam &amp; varietas padi</h3>
+<div class="bar"><label>Sumber air <select id="wq"><option value="0">Tadah hujan</option><option value=".5">Irigasi sederhana (menutup 50% defisit)</option><option value=".9">Irigasi teknis (menutup 90% defisit)</option></select></label>
+<label>Sistem lahan <select id="sys"><option value="0">Sawah</option><option value="1">Lahan kering (gogo)</option></select></label>
+<label>Metode tanam <select id="metode"><option value="tapin">Tapin (tanam pindah)</option><option value="tabela">Tabela (tanam benih langsung)</option></select></label>
+<span class="note">Pos &amp; skenario ENSO/IOD mengikuti pilihan di atas.</span></div>
+<div class="cd" id="rec" style="margin-bottom:12px"></div>
+<div class="cd" style="margin-bottom:12px"><h2>Hasil relatif (% potensi): varietas × tanggal tanam</h2><div id="hm"></div><p class="note">Angka = rerata hasil relatif dari <span id="ne"></span> simulasi hujan harian. Warna mengikuti <b>P20</b> (80% simulasi ≥ nilai ini): hijau ≥75 · oranye 55–74 · merah &lt;55 · <b>biru = tanggal terbaik varietas tsb</b>. Arahkan kursor ke sel untuk rincian.</p></div>
+<div class="cd" style="margin-bottom:12px"><h2>Tanggal tanam terbaik per pos</h2><table id="tp"></table></div>
+
+<p class="note"><b>Metode hujan:</b> baseline klimatologi 1999–2024 (26 tahun). Curah hujan dimodelkan pada skala akar pangkat tiga (distribusi miring kanan), hari hujan pada skala linear. Prediktor: anomali Niño 3.4 (NOAA CPC, mingguan) dan DMI (NOAA PSL; bulan terbaru diisi data BoM yang dikalibrasi), dirata-ratakan bulanan (bulan dengan &lt;3 minggu data diabaikan), pada lead 1–6 bulan; regresi ridge per pos × bulan × lead dengan pooling ±1 bulan. Validasi <i>leave-one-year-out nested</i>: klimatologi dihitung ulang tanpa tahun uji, skill = MSESS terhadap prakiraan klimatologi, dan signifikansi dari uji permutasi tahun. Model dipakai hanya bila skill &gt; ambang dan p ≤ ambang (lihat meta di atas); selain itu prakiraan = klimatologi. Sifat hujan dan peluang memakai definisi BMKG: Atas Normal &gt;115%, Normal 85–115%, Bawah Normal &lt;85% terhadap rata-rata; peluang klimatologi (tanpa sinyal) tidak persis 33/33/33. Dengan 11 pos yang saling berkorelasi kuat dan puluhan model, sebagian model lolos hanya karena kebetulan; baca “model lolos” sebagai indikasi, bukan bukti. Skenario diasumsikan persisten dan model linear tidak divalidasi untuk indeks ekstrem di luar rentang latih.<br>
+<b>Metode tanam:</b> setiap kombinasi pos/skenario disimulasikan dengan <b>ensembel hujan harian</b>: total bulanan diambil dari sebaran prediktif (skala akar pangkat tiga), jumlah hari hujan dari prakiraan hari hujan, hari hujan dipilih acak dalam bulan dan total dibagi dengan bobot eksponensial (bulan di luar 6 bulan prakiraan = klimatologi). Neraca air harian dengan cadangan genangan (sawah 50 mm, gogo 40 mm; lahan dianggap tergenang saat tanam): hujan efektif 85% (gogo 70%), kebutuhan = penyiapan lahan 200 mm/14 hari lalu ETo×Kc + perkolasi 1,5 mm. Kekurangan air yang tak tertutup irigasi dihitung relatif terhadap ETc per fase (vegetatif/generatif/pemasakan) dan dikalikan Ky per fase (pendekatan FAO-33), ditambah penalti hujan lebat (&gt;40 mm/hari) saat berbunga dan menjelang panen. Skor = hasil relatif rata-rata; P20 = ukuran risiko. Peringkat varietas utama memakai kecocokan iklim ((rerata+P20)/2), potensi hasil hanya sebagai pemecah seri. Pada Tabela umur dipotong 10 hari dan tanpa persemaian. Sawah dan gogo dihitung dan diperingkat terpisah: skor tidak dapat dibandingkan lintas sistem, karena gogo tidak memerlukan penyiapan lahan basah dan perkolasi sehingga skornya selalu lebih tinggi. Kolom tanggal dimulai dari hari ini.<br>
+<b>Asumsi yang wajib dikalibrasi:</b> ETo (konstan 4 mm/hari; isi <code>ETO_M</code> atau <code>eto</code> per pos), perkolasi, kapasitas genangan, Ky per fase, faktor toleransi kekeringan 15%/tingkat, ambang hujan lebat, hasil lapang 65% potensi (gogo 45%). Hujan harian hanyalah bangkitan acak dari data bulanan, tanpa korelasi antarbulan dan tanpa pengelompokan hari kering; ganti dengan data harian bila tersedia. Data varietas (Google Sheets) bersifat indikatif: cocokkan dengan Deskripsi Varietas resmi dan rekomendasi BPSB/BRMP Sulbar. Model tidak memuat suhu, tanah, hama-penyakit, rendaman, atau debit irigasi.</p></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+const DATA_URL='data.json',SKMIN=0.03,ENS=40;
+const MN=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'],$=i=>document.getElementById(i);
+const COL={BN:'#d97706',N:'#64748b',AN:'#0b8a5f'};
+let D,S,sc={o:0,d:0},ch={},map,lay,B=0,VAR=[];
+const m0=x=>x-B,dim=f=>new Date(f.y,m0(f.m)+1,0).getDate();
+const Phi=x=>{const t=1/(1+.2316419*Math.abs(x)),p=.3989423*Math.exp(-x*x/2)*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return x>0?1-p:p;};
+const cat=p=>p>115?'AN':p<85?'BN':'N',lab={BN:'Bawah Normal',N:'Normal',AN:'Atas Normal'};
+const ph=(v,t,l)=>v>=t?l[2]:v<=-t?l[0]:l[1],f1=x=>(+x).toFixed(1);
+const Ec=(m,s)=>m*m*m+3*m*s*s; // E[X^3], X~N(m,s)
+
+/* ===== Model hujan ===== */
+// ch: skala akar pangkat tiga (e.tf=1); hh: linear. z dalam satuan SD skala model.
+function calc(f,k,o,d){
+  const e=f[k],M=e.mod,use=!!M&&(M.use!==undefined?M.use:M.skill>SKMIN),
+    tm=e.tm!==undefined?e.tm:e.mean,ts=e.ts||e.sd||1,
+    z=use?M.mz+M.b1*(o-M.ma)/M.sa+M.b2*(d-M.mb)/M.sb:0,sg=use?M.rmse:1;
+  let v=e.tf?e.mean*Ec(Math.max(0,tm+z*ts),sg*ts)/Ec(tm,ts):e.mean+z*e.sd;
+  v=Math.max(0,v);if(k==='hh')v=Math.min(v,dim(f));
+  const g=x=>e.tf?Math.cbrt(x):x,
+    bn=Phi(((g(.85*e.mean)-tm)/ts-z)/sg),an=1-Phi(((g(1.15*e.mean)-tm)/ts-z)/sg);
+  return{v,bn,an,n:1-bn-an,use,r:M?M.r:0,p:M?M.p:null,sk:M?M.skill:0,pct:e.mean?v/e.mean*100:100,z,sg};
+}
+const fc3=(s,o,d)=>{let v=0,m=0;s.fc.slice(0,3).forEach(f=>{v+=calc(f,'ch',o,d).v;m+=f.ch.mean;});return v/m*100;};
+const card=(a,b,c)=>`<div class="cd"><div class="ks">${a}</div><div class="kv">${b}</div><div class="ks">${c}</div></div>`;
+const C=(id,cfg)=>{if(ch[id])ch[id].destroy();cfg.options=Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12}}}},cfg.options||{});ch[id]=new Chart($(id),cfg);};
+
+/* ===== Modul jadwal tanam padi ===== */
+// Kolom Google Sheets: n=nama, u=umur sebar-panen (hari), y=potensi hasil (t/ha), k=toleransi kering (0-2), g=gogo(1), a=faktor hasil lapang, t=catatan. INDIKATIF.
+const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/1d-xYcQxGpiBQKDecFrzHizM031Up23msjtaDVQStLc0/export?format=csv';
+const VAR_DEFAULT=[
+ {n:'Ciherang',u:120,y:8.5,k:0,t:'Umum dipakai; butuh air cukup'},
+ {n:'Mekongga',u:120,y:8.4,k:0,t:'Populer di Sulawesi'},
+ {n:'Inpari 32 HDB',u:120,y:8.4,k:0,t:'Tahan hawar daun bakteri (bukan toleran kering)'},
+ {n:'Inpari 30 Sub1',u:111,y:9.6,k:0,t:'Toleran rendaman (belum dimodelkan)'},
+ {n:'Inpari 38 THA',u:103,y:8.1,k:1,t:'Genjah, untuk tadah hujan'},
+ {n:'Inpari 42 GSR',u:112,y:10.6,k:1,t:'Potensi tinggi, genjah'},
+ {n:'Inpago 8 (gogo)',u:120,y:8.1,k:2,g:1,a:.45,t:'Padi gogo lahan kering, tanpa penggenangan'}];
+const ETO_M=Array(12).fill(4);                       // mm/hari per bulan: GANTI dengan data ETo setempat (atau s.eto per pos)
+const PERC=1.5,LP=14,NUR=20,KC=[1.05,1.2,.9],KY=[.25,.6,.25],SMAX=50,SMAXG=40,HEAVY=40;
+function rng(seed){let a=seed>>>0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const gauss=r=>Math.sqrt(-2*Math.log(1-r()))*Math.cos(2*Math.PI*r());
+// Ensembel hujan harian 18 bulan: total bulanan ~ sebaran prediktif, hari hujan acak, bobot eksponensial
+function mkEns(s,o,d){
+  const f0=s.fc[0],mo=[],eto=s.eto||ETO_M;
+  for(let i=0;i<18;i++){
+    const a=m0(f0.m)+i,mm=a%12,yy=f0.y+Math.floor(a/12),n=new Date(yy,mm+1,0).getDate(),f=s.fc[i],
+      e=f?f.ch:s.clim.ch[mm],hm=f?calc(f,'hh',o,d).v:s.clim.hh[mm].mean,
+      tm=e.tm!==undefined?e.tm:e.mean,ts=e.ts||e.sd;let z=0,sg=1;
+    if(f){const c=calc(f,'ch',o,d);z=c.z;sg=c.sg;}
+    mo.push({y:yy,m:mm,n,nd:Math.max(1,Math.min(n,Math.round(hm))),mu:tm+z*ts,sd:sg*ts,k3:e.mean/Ec(tm,ts),ev:eto[mm]});
+  }
+  const R=rng(7),E=[],ET=[];let fcEnd=0;
+  mo.forEach((x,i)=>{for(let j=0;j<x.n;j++)ET.push(x.ev);if(i<s.fc.length)fcEnd+=x.n;});
+  for(let k=0;k<ENS;k++){const P=[];
+    mo.forEach(x=>{
+      const V=x.k3*Math.pow(Math.max(0,x.mu+x.sd*gauss(R)),3),idx=Array.from({length:x.n},(_,i)=>i),w=[];let sw=0;
+      for(let i=0;i<x.nd;i++){const j=i+Math.floor(R()*(x.n-i));[idx[i],idx[j]]=[idx[j],idx[i]];const u=-Math.log(1-R());w.push(u);sw+=u;}
+      const day=new Array(x.n).fill(0);for(let i=0;i<x.nd;i++)day[idx[i]]=V*w[i]/sw;
+      day.forEach(v=>P.push(v));});
+    E.push(P);}
+  return{E,ET,fcEnd,nd:ET.length,y0:mo[0].y,m0:mo[0].m};
+}
+// Kehilangan hasil (0-1) satu anggota ensembel
+function loss(P,ET,T,v,q,Dc){
+  const lp=v.g?0:LP,kq=v.g?0:q,pf=v.g?.7:.85,cap=v.g?SMAXG:SMAX,pc=v.g?0:PERC;
+  let S=0,lu=0,ld=0;const us=[0,0,0],es=[0,0,0];
+  for(let t=T-lp;t<T+Dc;t++){
+    if(t===T)S=cap*(v.g?.5:1);
+    let n,etc=0,s=-1;
+    if(t>=T){const fr=(t-T)/Dc;s=fr<.4?0:fr<.7?1:2;etc=ET[t]*KC[s];n=etc+pc;}else n=200/lp;
+    S+=pf*P[t];let u=0;
+    if(S>=n)S-=n;else{u=(n-S)*(1-kq);S=0;}
+    if(S>cap)S=cap;
+    if(s<0){lu+=u;ld+=n;}else{us[s]+=u;es[s]+=etc;}
+  }
+  const st=us.reduce((a,u,i)=>a+KY[i]*Math.min(1,es[i]?u/es[i]:0),0)+.1*(ld?Math.min(1,lu/ld):0),
+    cnt=(a,b)=>{let c=0;for(let t=a|0;t<b|0;t++)if(P[t]>HEAVY)c++;return c;},
+    w=Math.min(.1,.02*cnt(T+.4*Dc,T+.7*Dc))+Math.min(.1,.02*cnt(T+Dc-14,T+Dc));
+  return Math.min(.95,st*(1-.15*(v.k||0))+w);
+}
+const dc=(v,pu)=>v.g?v.u:v.u-pu-(pu>0?0:NUR),vs=g=>VAR.filter(v=>!!v.g===!!g);
+function cell(en,T,v,q,pu){
+  const Dc=dc(v,pu);
+  if(Dc<30||T+Dc>en.nd)return null;
+  const sc_=en.E.map(P=>100*(1-loss(P,en.ET,T,v,q,Dc))).sort((a,b)=>a-b),
+    m=sc_.reduce((a,b)=>a+b,0)/sc_.length,b=sc_[Math.floor(.2*sc_.length)];
+  return{m,b,y:v.y*(v.a||.65)*m/100,sh:Math.max(0,Math.min(Dc,en.fcEnd-T))/Dc};
+}
+const cache={};
+function plan(s,q,pu,g){
+  const key=[s.id,sc.o,sc.d,q,pu,g,VAR.length].join('|');if(cache[key])return cache[key];
+  if(Object.keys(cache).length>150)for(const k in cache)delete cache[k];
+  const en=mkEns(s,sc.o,sc.d),t0=new Date(en.y0,en.m0,1),cols=[],
+    td=Math.max(14,Math.ceil((Date.now()-t0)/864e5)); // mulai dari hari ini, bukan tanggal yang sudah lewat
+  for(let T=td;T<en.nd-90;T+=15)cols.push(T);
+  return cache[key]={t0,cols,res:vs(g).map(v=>cols.map(T=>cell(en,T,v,q,pu)))};
+}
+const dl=(t0,T)=>{const x=new Date(t0.getFullYear(),t0.getMonth(),1+T);return x.getDate()+' '+MN[x.getMonth()]+' '+String(x.getFullYear()).slice(2);};
+const key=c=>(c.m+c.b)/2+.5*c.y; // kecocokan iklim utama, hasil sebagai pemecah seri
+const bestOf=R=>{let b=null;R.res.forEach((r,i)=>r.forEach((c,j)=>{if(c&&(!b||key(c)>key(b.c)))b={i,j,c};}));return b;};
+function tanam(){
+  const g=+$('sys').value,V=vs(g),pu=g?0:($('metode').value==='tabela'?10:0),q=+$('wq').value,
+    lbl=g?'Tanam (gogo)':pu>0?'Tanam (Tabela)':'Pindah tanam';
+  $('metode').disabled=!!g;
+  if(!V.length){$('hm').innerHTML='';$('tp').innerHTML='';$('rec').textContent='Tidak ada varietas untuk sistem lahan ini pada data varietas.';return;}
+  const R=plan(S,q,pu,g),{t0,cols,res}=R,b=bestOf(R);$('ne').textContent=ENS;
+  const bp=res.map(row=>{let k=-1;row.forEach((c,j)=>{if(c&&(k<0||key(c)>key(row[k])))k=j;});return k;});
+  $('hm').innerHTML='<table class="hm"><tr><th>Varietas (umur)</th>'+cols.map(T=>`<th>${dl(t0,T).replace(' ','<br>')}</th>`).join('')+'</tr>'
+   +V.map((v,i)=>`<tr><td title="${v.t||''}">${v.n} (${dc(v,pu)} hr lahan)</td>`+res[i].map((c,j)=>{
+     if(!c)return '<td>–</td>';
+     const best=j===bp[i],cls=best?'s4':c.b>=75?'s3':c.b>=55?'s2':'s1';
+     return `<td class="${cls}" title="${best?'★ TERBAIK untuk varietas ini\n':''}${lbl} ${dl(t0,cols[j])}: hasil relatif rerata ${Math.round(c.m)}%, P20 ${Math.round(c.b)}%, hasil ≈ ${c.y.toFixed(1)} t/ha${c.sh<1?` (${Math.round((1-c.sh)*100)}% siklus memakai klimatologi)`:''}">${Math.round(c.m)}</td>`;}).join('')+'</tr>').join('')+'</table>';
+  if(!b){$('rec').textContent='Data tidak cukup untuk simulasi.';return;}
+  const per=V.map((v,i)=>({i,k:bp[i]})).filter(x=>x.k>=0).sort((x,y)=>key(res[y.i][y.k])-key(res[x.i][x.k])),
+    ok=res[b.i].map((c,j)=>c&&c.b>=75?dl(t0,cols[j]):null).filter(Boolean),B_=V[b.i];
+  $('rec').innerHTML=`<h2>Rekomendasi ${g?'lahan kering':'sawah'} pos ${S.name}</h2><p style="margin:0 0 6px"><b>${lbl} ±${dl(t0,cols[b.j])}</b> dengan <b>${B_.n}</b>: hasil relatif rerata ${Math.round(b.c.m)}%, P20 ${Math.round(b.c.b)}%, hasil lapang indikatif ≈ ${b.c.y.toFixed(1)} t/ha.</p>
+  <div class="note">Jendela aman (P20 ≥75) untuk ${B_.n}: ${ok.join(', ')||'tidak ada'}. Selisih 1–2 poin antar tanggal hijau masih dalam derau simulasi: baca sebagai jendela, bukan tanggal tunggal.<br>Varietas pada tanggal terbaiknya (urut kecocokan iklim): ${per.map(x=>{const c=res[x.i][x.k];return `${V[x.i].n} → ${dl(t0,cols[x.k])} (rerata ${Math.round(c.m)}%, P20 ${Math.round(c.b)}%, ${c.y.toFixed(1)} t/ha)`;}).join('; ')}.</div>`;
+  $('tp').innerHTML='<tr><th>Pos</th><th>Tanam terbaik</th><th>Varietas</th><th>Rerata (%)</th><th>P20 (%)</th><th>Hasil (t/ha)</th></tr>'
+   +D.stations.filter(s=>s.fc&&s.fc.length&&s.clim).map(s=>{const r=plan(s,q,pu,g),t=bestOf(r);return t?`<tr><td>${s.name}</td><td>${dl(r.t0,r.cols[t.j])}</td><td>${V[t.i].n}</td><td>${Math.round(t.c.m)}</td><td>${Math.round(t.c.b)}</td><td>${t.c.y.toFixed(1)}</td></tr>`:'';}).join('');
+}
+
+/* ===== Dashboard hujan ===== */
+function render(){
+  S=D.stations.find(s=>s.id===$('st').value);const o=sc.o,d=sc.d;
+  const R=S.fc.map(f=>({f,c:calc(f,'ch',o,d),h:calc(f,'hh',o,d)}));
+  const tot=n=>{const v=R.slice(0,n).reduce((s,x)=>s+x.c.v,0),m=R.slice(0,n).reduce((s,x)=>s+x.f.ch.mean,0);return[v,v/m*100];};
+  const[v3,p3]=tot(3),[v6,p6]=tot(R.length),nu=R.filter(x=>x.c.use).length,M=D.meta;
+  $('k').innerHTML=card('ENSO (Niño 3.4)',f1(o)+' °C',ph(o,.5,['La Niña','Netral','El Niño']))+card('IOD (DMI)',f1(d)+' °C',ph(d,.4,['IOD Negatif','Netral','IOD Positif']))
+   +card('Total 3 bulan',Math.round(v3)+' mm',Math.round(p3)+'% normal · <b class="'+cat(p3)+'">'+lab[cat(p3)]+'</b>')
+   +card('Total 6 bulan',Math.round(v6)+' mm',Math.round(p6)+'% normal · <b class="'+cat(p6)+'">'+lab[cat(p6)]+'</b>')
+   +card('Sinyal ENSO/IOD',nu+' / '+R.length+' bulan','bulan lolos uji (skill &gt; '+(M.skmin??SKMIN)+', p ≤ '+(M.pmax??'–')+'); selebihnya klimatologi');
+  const LB=S.fc.map(f=>MN[m0(f.m)]+' '+f.y),cl=S.clim;
+  C('c1',{type:'bar',data:{labels:MN,datasets:[
+    {type:'bar',label:'CH rata-rata (mm)',data:cl.ch.map(x=>x.mean),backgroundColor:'#0b6fa4aa'},
+    {type:'line',label:'P33',data:cl.ch.map(x=>x.p33),borderColor:COL.BN,borderDash:[4,3],pointRadius:0},
+    {type:'line',label:'P67',data:cl.ch.map(x=>x.p67),borderColor:COL.AN,borderDash:[4,3],pointRadius:0},
+    {type:'line',label:'Hari hujan',data:cl.hh.map(x=>x.mean),borderColor:'#7c3aed',yAxisID:'y2',tension:.3}]},
+    options:{scales:{y:{title:{display:true,text:'mm'}},y2:{position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'hari'}}}}});
+  C('c2',{type:'bar',data:{labels:LB,datasets:[
+    {type:'bar',label:'Prakiraan (mm)',data:R.map(x=>x.c.v),backgroundColor:R.map(x=>COL[cat(x.c.pct)])},
+    {type:'line',label:'Normal',data:S.fc.map(f=>f.ch.mean),borderColor:'#0b6fa4',pointRadius:3},
+    {type:'line',label:'85% normal',data:S.fc.map(f=>.85*f.ch.mean),borderColor:COL.BN,borderDash:[4,3],pointRadius:0},
+    {type:'line',label:'115% normal',data:S.fc.map(f=>1.15*f.ch.mean),borderColor:COL.AN,borderDash:[4,3],pointRadius:0}]}});
+  $('tb').innerHTML='<tr><th>Bulan</th><th>CH normal</th><th>CH prakiraan</th><th>% normal</th><th>Sifat</th><th>P(BB / N / AB) %</th><th>Hari hujan (prak./normal)</th><th>Dasar model</th></tr>'
+   +R.map(x=>{const k=cat(x.c.pct);return`<tr><td>${MN[m0(x.f.m)]} ${x.f.y}</td><td>${Math.round(x.f.ch.mean)}</td><td>${Math.round(x.c.v)}</td><td>${Math.round(x.c.pct)}</td><td class="${k}">${lab[k]}</td>
+   <td>${Math.round(x.c.bn*100)} / ${Math.round(x.c.n*100)} / ${Math.round(x.c.an*100)}</td><td>${Math.round(x.h.v)} / ${Math.round(x.f.hh.mean)}</td><td>${x.c.use?'ENSO+IOD (skill '+x.c.sk.toFixed(2)+', p='+(x.c.p==null?'–':x.c.p.toFixed(2))+')':'klimatologi'}</td></tr>`;}).join('');
+  C('c3',{type:'bar',data:{labels:MN,datasets:[{label:'Niño 3.4',data:S.cor.oni,backgroundColor:'#ef4444aa'},{label:'DMI',data:S.cor.dmi,backgroundColor:'#0b6fa4aa'},
+    {type:'line',label:'+0,39 (p=0,05)',data:MN.map(()=>.39),borderColor:'#94a3b8',borderDash:[4,3],pointRadius:0},{type:'line',label:'−0,39',data:MN.map(()=>-.39),borderColor:'#94a3b8',borderDash:[4,3],pointRadius:0}]},options:{scales:{y:{min:-1,max:1}}}});
+  const H=D.idx.hist;
+  C('c4',{type:'line',data:{labels:H.map(x=>MN[m0(x.m)]+' '+String(x.y).slice(2)),datasets:[{label:'Niño 3.4',data:H.map(x=>x.oni),borderColor:'#ef4444',tension:.3},{label:'DMI',data:H.map(x=>x.dmi),borderColor:'#0b6fa4',tension:.3}]}});
+  lay.clearLayers();
+  D.stations.filter(s=>s.lat!=null&&s.fc&&s.fc.length).forEach(s=>{const p=fc3(s,o,d),k=cat(p);
+    L.circleMarker([s.lat,s.lon],{radius:s.id===S.id?11:8,color:'#fff',weight:2,fillColor:COL[k],fillOpacity:.9}).addTo(lay)
+    .bindTooltip(s.name+': '+Math.round(p)+'% normal ('+lab[k]+')').on('click',()=>{$('st').value=s.id;render();});});
+  tanam();
+}
+Promise.all([
+  fetch(DATA_URL+'?t='+Date.now()).then(r=>r.json()),
+  new Promise(resolve=>Papa.parse(SHEET_CSV_URL,{download:true,header:true,dynamicTyping:true,skipEmptyLines:true,
+    transformHeader:h=>h.trim(),complete:res=>resolve(res.data.filter(x=>x&&x.n&&x.u&&x.y)),error:()=>resolve([])}))
+]).then(([r,sheet])=>{
+  if(sheet.length)VAR=sheet;else{VAR=VAR_DEFAULT;$('err').textContent='Peringatan: data varietas dari Google Sheets gagal dimuat, memakai data bawaan.';}
+  if(r.error)throw new Error(r.error);
+  D=r;const I=r.idx,M=r.meta;B=I.hist.some(x=>x.m===12)?1:0; // deteksi bulan 1-12 vs 0-11
+  $('meta').textContent=`Data ${M.y0}–${M.y1} · ${M.n} pos · Indeks: ${I.src||'BoM'} · Niño 3.4 terakhir: ${MN[m0(I.m)]} ${I.y} (${f1(I.oni)} °C) · DMI terakhir: ${MN[m0(I.dm)]} ${I.dy} (${f1(I.dmi)} °C) · model lolos uji: ${M.nUse??'?'}/${M.nModels??'?'} (permutasi ${M.perms??'?'}×) · diperbarui ${r.updated}`;
+  $('st').innerHTML=r.stations.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  map=L.map('map').setView([-2.4,119.3],7);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  map.createPane('batas');map.getPane('batas').style.zIndex=350;
+  lay=L.layerGroup().addTo(map);
+  fetch('sulawesi-barat.json').then(x=>x.json()).then(g=>L.geoJSON(g,{pane:'batas',interactive:false,style:{color:'#64748b',weight:2,fillOpacity:.1}}).addTo(map))
+    .catch(e=>console.error('Gagal memuat batas wilayah:',e));
+  const set=(o,d)=>{o=Math.max(-4.5,Math.min(4.5,+o||0));d=Math.max(-2,Math.min(2,+d||0));sc={o,d};$('o').value=o;$('d').value=d;render();};
+  set(I.oni,I.dmi);$('st').onchange=render;$('wq').onchange=tanam;$('metode').onchange=tanam;$('sys').onchange=tanam;
+  $('o').onchange=$('d').onchange=()=>set($('o').value,$('d').value);
+  document.querySelectorAll('button[data-s]').forEach(b=>b.onclick=()=>{const v=b.dataset.s;v==='obs'?set(I.oni,I.dmi):set(...v.split(',').map(Number));});
+}).catch(e=>{$('err').textContent='Gagal memuat data: '+e.message+' (pastikan data.json ada dan GitHub Pages aktif)';$('meta').textContent='';});
+</script></body></html>
