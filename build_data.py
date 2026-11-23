@@ -26,7 +26,7 @@ from openpyxl import load_workbook
 
 warnings.simplefilter('ignore')
 XLSX = 'Data_Curah_Hujan_-_Mamuju.xlsx'
-Y0, Y1, LEADS, MIN_WEEKS = 1999, 2024, 6, 3
+Y0, Y1, LEADS, MIN_WEEKS = 1996, 2025, 6, 3
 SKMIN = float(os.environ.get('SKMIN', 0.03))   # ambang MSESS (nested)
 PMAX = float(os.environ.get('PMAX', 0.10))     # ambang p-value permutasi
 PERMS = int(os.environ.get('PERMS', 99))       # 0 = lewati uji permutasi
