@@ -44,7 +44,6 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:6px 8px;b
 <label>Metode tanam <select id="metode"><option value="tapin">Tapin (tanam pindah)</option><option value="tabela">Tabela (tanam benih langsung)</option></select></label>
 <span class="note">Pos &amp; skenario ENSO/IOD mengikuti pilihan di atas.</span></div>
 <div class="cd" id="rec" style="margin-bottom:12px"></div>
-  <div class="cd" id="rec2" style="margin-bottom:12px"></div>
 <div class="cd" style="margin-bottom:12px"><h2>Hasil relatif (% potensi): varietas × tanggal tanam</h2><div id="hm"></div><p class="note">Angka = rerata hasil relatif dari <span id="ne"></span> simulasi hujan harian. Warna mengikuti <b>P20</b> (80% simulasi ≥ nilai ini): hijau ≥75 · oranye 55–74 · merah &lt;55 · <b>biru = tanggal terbaik varietas tsb</b>. Arahkan kursor ke sel untuk rincian.</p></div>
 <div class="cd" style="margin-bottom:12px"><h2>Tanggal tanam terbaik per pos</h2><table id="tp"></table></div>
 
@@ -155,50 +154,18 @@ function plan(s,q,pu,g){
 const dl=(t0,T)=>{const x=new Date(t0.getFullYear(),t0.getMonth(),1+T);return x.getDate()+' '+MN[x.getMonth()]+' '+String(x.getFullYear()).slice(2);};
 const key=c=>(c.m+c.b)/2+.5*c.y; // kecocokan iklim utama, hasil sebagai pemecah seri
 const bestOf=R=>{let b=null;R.res.forEach((r,i)=>r.forEach((c,j)=>{if(c&&(!b||key(c)>key(b.c)))b={i,j,c};}));return b;};
-  // ===== Rencana 2 musim tanam =====
-const YEAR=365,GAP_PANEN=3,GAP_GOGO=7;
-function plan2(R,V,pu,g){
-  const {cols,res}=R,gap=g?GAP_GOGO:LP+GAP_PANEN,P=[];
-  V.forEach((v1,i1)=>cols.forEach((T1,j1)=>{
-    const c1=res[i1][j1];if(!c1||T1>cols[0]+YEAR)return;
-    const e1=T1+dc(v1,pu)+gap;
-    V.forEach((v2,i2)=>cols.forEach((T2,j2)=>{
-      const c2=res[i2][j2];
-      if(c2&&T2>=e1&&T2+dc(v2,pu)<=T1+YEAR)P.push({i1,j1,i2,j2,c1,c2,s:key(c1)+key(c2)});
-    }));
-  }));
-  return P.sort((a,b)=>b.s-a.s);
-}
-function dua(R,V,pu,g,q,P2){
-  const {t0,cols}=R,B2=P2[0],gap=g?GAP_GOGO:LP+GAP_PANEN,
-    rw=(lb,i,j,c)=>`<tr><td>${lb}</td><td>${V[i].n}</td><td>${dl(t0,cols[j])}</td><td>${dl(t0,cols[j]+dc(V[i],pu))}</td><td>${Math.round(c.m)}</td><td>${Math.round(c.b)}</td><td>${c.y.toFixed(1)}</td></tr>`;
-  if(!B2){$('rec2').innerHTML='<h2>Rencana 2 musim tanam</h2><p class="note">Tidak ada kombinasi dua musim yang muat dalam 12 bulan (coba Tabela atau varietas lebih genjah).</p>';$('tp2').innerHTML='';return;}
-  const seen=new Set(),alt=[];
-  for(const p of P2){const k=p.i1+'-'+p.i2;if(!seen.has(k)){seen.add(k);alt.push(p);}if(alt.length>=5)break;}
-  $('rec2').innerHTML=`<h2>Rencana 2 musim tanam — ${g?'lahan kering':'sawah'} pos ${S.name}</h2>
-  <table><tr><th>Musim</th><th>Varietas</th><th>Tanam</th><th>Panen</th><th>Rerata (%)</th><th>P20 (%)</th><th>Hasil (t/ha)</th></tr>
-  ${rw('MT utama',B2.i1,B2.j1,B2.c1)}${rw('MT kedua',B2.i2,B2.j2,B2.c2)}
-  <tr><td><b>Gabungan</b></td><td></td><td></td><td></td><td>${Math.round((B2.c1.m+B2.c2.m)/2)}</td><td>${Math.round(Math.min(B2.c1.b,B2.c2.b))}</td><td><b>${(B2.c1.y+B2.c2.y).toFixed(1)}</b></td></tr></table>
-  <div class="note" style="margin:8px 0">MT kedua mulai ≥${gap} hari setelah panen MT utama. Selisih kecil antar tanggal/varietas masih dalam derau simulasi.</div>
-  <h2 style="margin-top:10px">Alternatif pasangan varietas</h2>
-  <table><tr><th>#</th><th>MT utama</th><th>MT kedua</th><th>Hasil total (t/ha)</th></tr>${alt.map((p,n)=>`<tr><td>${n+1}</td><td>${V[p.i1].n} · tanam ${dl(t0,cols[p.j1])}</td><td>${V[p.i2].n} · tanam ${dl(t0,cols[p.j2])}</td><td>${(p.c1.y+p.c2.y).toFixed(1)}</td></tr>`).join('')}</table>`;
-  $('tp2').innerHTML='<tr><th>Pos</th><th>MT utama (varietas · tanam)</th><th>MT kedua (varietas · tanam)</th><th>Hasil total (t/ha)</th><th>P20 terendah (%)</th></tr>'
-   +D.stations.filter(s=>s.fc&&s.fc.length&&s.clim).map(s=>{const r=plan(s,q,pu,g),p=plan2(r,V,pu,g)[0];return p?`<tr><td>${s.name}</td><td>${V[p.i1].n} · ${dl(r.t0,r.cols[p.j1])}</td><td>${V[p.i2].n} · ${dl(r.t0,r.cols[p.j2])}</td><td>${(p.c1.y+p.c2.y).toFixed(1)}</td><td>${Math.round(Math.min(p.c1.b,p.c2.b))}</td></tr>`:`<tr><td>${s.name}</td><td colspan="4">–</td></tr>`;}).join('');
-}
 function tanam(){
   const g=+$('sys').value,V=vs(g),pu=g?0:($('metode').value==='tabela'?10:0),q=+$('wq').value,
     lbl=g?'Tanam (gogo)':pu>0?'Tanam (Tabela)':'Pindah tanam';
   $('metode').disabled=!!g;
-  if(!V.length){$('hm').innerHTML='';$('tp').innerHTML='';$('tp2').innerHTML='';$('rec2').innerHTML='';$('rec').textContent='Tidak ada varietas untuk sistem lahan ini pada data varietas.';return;}
-  const R=plan(S,q,pu,g),{t0,cols,res}=R,b=bestOf(R),P2=plan2(R,V,pu,g),B2=P2[0],
-  mk=(i,j)=>B2&&B2.i1===i&&B2.j1===j?'<sup>I</sup>':B2&&B2.i2===i&&B2.j2===j?'<sup>II</sup>':'';
-$('ne').textContent=ENS;dua(R,V,pu,g,q,P2);
+  if(!V.length){$('hm').innerHTML='';$('tp').innerHTML='';$('rec').textContent='Tidak ada varietas untuk sistem lahan ini pada data varietas.';return;}
+  const R=plan(S,q,pu,g),{t0,cols,res}=R,b=bestOf(R);$('ne').textContent=ENS;
   const bp=res.map(row=>{let k=-1;row.forEach((c,j)=>{if(c&&(k<0||key(c)>key(row[k])))k=j;});return k;});
   $('hm').innerHTML='<table class="hm"><tr><th>Varietas (umur)</th>'+cols.map(T=>`<th>${dl(t0,T).replace(' ','<br>')}</th>`).join('')+'</tr>'
    +V.map((v,i)=>`<tr><td title="${v.t||''}">${v.n} (${dc(v,pu)} hr lahan)</td>`+res[i].map((c,j)=>{
      if(!c)return '<td>–</td>';
      const best=j===bp[i],cls=best?'s4':c.b>=75?'s3':c.b>=55?'s2':'s1';
-     return `<td class="${cls}" title="${best?'★ TERBAIK untuk varietas ini\n':''}${lbl} ${dl(t0,cols[j])}: hasil relatif rerata ${Math.round(c.m)}%, P20 ${Math.round(c.b)}%, hasil ≈ ${c.y.toFixed(1)} t/ha${c.sh<1?` (${Math.round((1-c.sh)*100)}% siklus memakai klimatologi)`:''}">${Math.round(c.m)}${mk(i,j)}</td>`;}).join('')+'</tr>').join('')+'</table>';
+     return `<td class="${cls}" title="${best?'★ TERBAIK untuk varietas ini\n':''}${lbl} ${dl(t0,cols[j])}: hasil relatif rerata ${Math.round(c.m)}%, P20 ${Math.round(c.b)}%, hasil ≈ ${c.y.toFixed(1)} t/ha${c.sh<1?` (${Math.round((1-c.sh)*100)}% siklus memakai klimatologi)`:''}">${Math.round(c.m)}</td>`;}).join('')+'</tr>').join('')+'</table>';
   if(!b){$('rec').textContent='Data tidak cukup untuk simulasi.';return;}
   const per=V.map((v,i)=>({i,k:bp[i]})).filter(x=>x.k>=0).sort((x,y)=>key(res[y.i][y.k])-key(res[x.i][x.k])),
     ok=res[b.i].map((c,j)=>c&&c.b>=75?dl(t0,cols[j]):null).filter(Boolean),B_=V[b.i];
