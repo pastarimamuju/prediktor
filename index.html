@@ -21,6 +21,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:6px 8px;b
 .hm{font-size:11px}.hm th,.hm td{text-align:center;padding:4px 5px}.hm th:first-child,.hm td:first-child{text-align:left;position:sticky;left:0;background:var(--cd)}
 .s3{background:#0b8a5f66}.s2{background:#d9770666}.s1{background:#dc262666}
 .s4{background:#0b6fa4;color:#fff;font-weight:bold;box-shadow:inset 0 0 0 2px #38bdf8}
+.mt{outline:2px solid #e879f9;outline-offset:-2px;font-weight:bold}
 </style></head><body>
 <header><h1>Hujan &amp; Jadwal Tanam Padi Sulawesi Barat</h1><div class="sub" id="meta">Memuat data…</div></header>
 <main><div id="err"></div>
@@ -45,7 +46,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:6px 8px;b
 <span class="note">Pos &amp; skenario ENSO/IOD mengikuti pilihan di atas.</span></div>
 <div class="cd" id="rec" style="margin-bottom:12px"></div>
 <div class="cd" id="rec2" style="margin-bottom:12px"></div>
-<div class="cd" style="margin-bottom:12px"><h2>Hasil relatif (% potensi): varietas × tanggal tanam</h2><div id="hm"></div><p class="note">Angka = rerata hasil relatif dari <span id="ne"></span> simulasi hujan harian. Warna mengikuti <b>P20</b> (80% simulasi ≥ nilai ini): hijau ≥75 · oranye 55–74 · merah &lt;55 · <b>biru = tanggal terbaik varietas tsb</b> · <sup>I</sup>/<sup>II</sup> = MT utama/kedua pada rencana 2 musim. Arahkan kursor ke sel untuk rincian.</p></div>
+<div class="cd" style="margin-bottom:12px"><h2>Hasil relatif (% potensi): varietas × tanggal tanam</h2><div id="hm"></div><p class="note">Angka = rerata hasil relatif dari <span id="ne"></span> simulasi hujan harian. Warna mengikuti <b>P20</b> (80% simulasi ≥ nilai ini): hijau ≥75 · oranye 55–74 · merah &lt;55 · <b>biru = tanggal terbaik varietas tsb</b> · <b style="outline:2px solid #e879f9;outline-offset:-2px;padding:0 3px">bingkai ungu</b> + <sup>I</sup>/<sup>II</sup> = MT utama/kedua pada rencana 2 musim. Arahkan kursor ke sel untuk rincian.</p></div>
 <div class="cd" style="margin-bottom:12px"><h2>Tanggal tanam terbaik per pos</h2><table id="tp"></table></div>
 <div class="cd" style="margin-bottom:12px"><h2>Rencana 2 musim tanam per pos (MT utama &amp; MT kedua)</h2><table id="tp2"></table></div>
 
@@ -205,8 +206,8 @@ function tanam(){
   $('hm').innerHTML='<table class="hm"><tr><th>Varietas (umur)</th>'+cols.map(T=>`<th>${dl(t0,T).replace(' ','<br>')}</th>`).join('')+'</tr>'
    +V.map((v,i)=>`<tr><td title="${v.t||''}">${v.n} (${dc(v,pu)} hr lahan)</td>`+res[i].map((c,j)=>{
      if(!c)return '<td>–</td>';
-     const best=j===bp[i],cls=best?'s4':c.b>=75?'s3':c.b>=55?'s2':'s1';
-     return `<td class="${cls}" title="${best?'★ TERBAIK untuk varietas ini\n':''}${lbl} ${dl(t0,cols[j])}: hasil relatif rerata ${Math.round(c.m)}%, P20 ${Math.round(c.b)}%, hasil ≈ ${c.y.toFixed(1)} t/ha${c.sh<1?` (${Math.round((1-c.sh)*100)}% siklus memakai klimatologi)`:''}">${Math.round(c.m)}${mk(i,j)}</td>`;}).join('')+'</tr>').join('')+'</table>';
+     const best=j===bp[i],mt=mk(i,j),cls=(best?'s4':c.b>=75?'s3':c.b>=55?'s2':'s1')+(mt?' mt':'');
+     return `<td class="${cls}" title="${best?'★ TERBAIK untuk varietas ini\n':''}${mt?(mt.includes('II')?'MT KEDUA':'MT UTAMA')+' pada rencana 2 musim\n':''}${lbl} ${dl(t0,cols[j])}: hasil relatif rerata ${Math.round(c.m)}%, P20 ${Math.round(c.b)}%, hasil ≈ ${c.y.toFixed(1)} t/ha${c.sh<1?` (${Math.round((1-c.sh)*100)}% siklus memakai klimatologi)`:''}">${Math.round(c.m)}${mt}</td>`;}).join('')+'</tr>').join('')+'</table>';
   if(!b){$('rec').textContent='Data tidak cukup untuk simulasi.';return;}
   const per=V.map((v,i)=>({i,k:bp[i]})).filter(x=>x.k>=0).sort((x,y)=>key(res[y.i][y.k])-key(res[x.i][x.k])),
     ok=res[b.i].map((c,j)=>c&&c.b>=75?dl(t0,cols[j]):null).filter(Boolean),B_=V[b.i];
