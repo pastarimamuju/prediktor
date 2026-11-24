@@ -1,7 +1,7 @@
 name: Update data iklim
 on:
   schedule:
-    - cron: '0 3 * * *'   # tiap hari 03:00 UTC; BoM memperbarui mingguan, commit hanya bila hasil berubah
+    - cron: '0 3 * * *'   # tiap hari 03:00 UTC; CPC memperbarui Nino 3.4 mingguan, ERSSTv6 bulanan; commit hanya bila hasil berubah
   workflow_dispatch:
   push:
     paths: ['Data_Curah_Hujan*.xlsx', 'build_data.py']
@@ -13,13 +13,13 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45   # run pertama mengunduh ERSSTv6 (~90 MB) dan menjalankan uji permutasi
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install numpy openpyxl requests
+      - run: pip install numpy openpyxl requests netCDF4
       - run: python build_data.py
         env:
           SHEET_XLSX_URL: ${{ secrets.SHEET_XLSX_URL }}  # opsional
