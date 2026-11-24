@@ -19,6 +19,10 @@ PERUBAHAN UTAMA (v2)
  5. MIN_WEEKS = 3 (sama dengan process_enso.py / process_iod.py). Bulan terakhir = bulan lengkap terakhir
     yang tersedia di KEDUA indeks.
  6. data.json hanya ditulis ulang bila isi (selain stempel waktu) berubah -> tidak ada commit harian sia-sia.
+ 7. meta.oniRange / meta.dmiRange = rentang indeks pada periode latih; dashboard memakainya untuk membatasi
+    skenario ekstrem (mis. El Nino sangat kuat) dan menampilkan peringatan.
+ 8. Bulan terakhir (t0) tidak pernah melebihi bulan kalender penuh terakhir, sehingga bulan berjalan yang
+    baru terisi 3 minggu tidak dianggap lengkap dan awal prakiraan tidak melompat ke bulan depan.
 """
 import datetime as dt, json, math, os, pathlib, re, warnings
 import numpy as np, requests
@@ -142,6 +146,12 @@ def get_indices():
         if b:
             merge_bom(dmi, b)
     return oni, dmi, 'CPC Nino3.4 + PSL DMI (BoM mengisi bulan terbaru)', f'{why}; {m1}; {m2}'
+
+
+def idx_range(d):
+    """Rentang [min, max] indeks pada periode latih (Y0..Y1); dipakai dashboard untuk membatasi skenario ekstrem."""
+    v = [x for t, x in d.items() if T0 <= t < T0 + N * 12]
+    return [round(min(v), 3), round(max(v), 3)] if v else None
 
 
 # ---------- Data hujan ----------
@@ -380,7 +390,11 @@ def main():
             print('Gagal ambil Google Sheets, memakai file xlsx di repo:', e)
     oni, dmi, src, msg = get_indices()
     I = dict(oni=oni, dmi=dmi)
-    t0 = min(max(oni), max(dmi))               # bulan terakhir yang lengkap di KEDUA indeks
+    today = dt.datetime.now(dt.timezone.utc)
+    last_full = today.year * 12 + today.month - 2   # bulan kalender penuh terakhir (bulan berjalan belum lengkap)
+    t0 = min(max(oni), max(dmi), last_full)         # bulan terakhir yang lengkap di KEDUA indeks
+    if t0 not in oni or t0 not in dmi:              # bulan itu bisa kosong bila data terlambat: mundur ke yang ada
+        t0 = max(t for t in oni if t <= t0 and t in dmi)
     st = read_stations()
     reg = lambda k: np.nanmean(np.vstack([s[k] for s in st]), axis=0)
     allst = [dict(id='SULBAR', name=f'SULBAR (rata-rata {len(st)} pos)', loc='Rata-rata seluruh pos',
@@ -393,7 +407,8 @@ def main():
                idx=dict(y=t0 // 12, m=t0 % 12, oni=oni[t0], dmi=dmi[t0], dy=t0 // 12, dm=t0 % 12,
                         src=src, bomMsg=msg, hist=hist),
                meta=dict(y0=Y0, y1=Y1, n=len(st), perms=PERMS, skmin=SKMIN, pmax=PMAX,
-                         nModels=len(mods), nUse=sum(1 for M in mods if M['use'])),
+                         nModels=len(mods), nUse=sum(1 for M in mods if M['use']),
+                         oniRange=idx_range(oni), dmiRange=idx_range(dmi)),
                updated=dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))
     new = clean(out)
     p = pathlib.Path('data.json')
@@ -408,7 +423,8 @@ def main():
             pass
     p.write_text(json.dumps(new, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     print('data.json ditulis | sumber indeks:', src, '| bulan terakhir', t0 // 12, t0 % 12 + 1,
-          '| model lolos', out['meta']['nUse'], '/', out['meta']['nModels'], '|', msg)
+          '| model lolos', out['meta']['nUse'], '/', out['meta']['nModels'], '| rentang ONI', out['meta']['oniRange'],
+          'DMI', out['meta']['dmiRange'], '|', msg)
 
 
 if __name__ == '__main__':
